@@ -1,0 +1,55 @@
+-- ==============================================================================
+-- 2. INSERT DATA CHO CHARGING_POINT
+-- ==============================================================================
+INSERT INTO charging_point (id, status, charging_station_id)
+SELECT
+    REPLACE(cs.id, 'cs-', 'cp-') || '-' || LPAD(g.n::text, 2, '0') AS id,
+    (ARRAY[0, 1, 2, 3])[floor(random() * 4 + 1)::int] AS status,
+    cs.id AS charging_station_id
+FROM
+    charging_station cs,
+    LATERAL generate_series(1, 5) AS g(n);
+
+
+-- ==============================================================================
+-- 3. INSERT DATA CHO CONNECTOR
+-- Cập nhật: Tạo 2 đầu sạc / trụ -> Mỗi trạm sẽ có exactly 10 connector CÙNG LOẠI
+-- ==============================================================================
+INSERT INTO connector (id, is_available, max_power, price, type, voltage, charging_point_id)
+SELECT
+    REPLACE(cp.id, 'cp-', 'cn-') || '-' || g.n::text AS id,
+    true AS is_available,
+
+    -- Rule: Phân loại công suất theo CPO
+    CASE cs.manufacturer_id
+        WHEN 'cpo-vgreen' THEN 250.0  -- Siêu nhanh DC
+        WHEN 'cpo-eboost' THEN 22.0   -- Sạc AC 3 pha
+        WHEN 'cpo-datbike' THEN 7.4   -- Sạc AC 1 pha
+        END AS max_power,
+
+    -- Rule: Phân loại giá theo CPO
+    CASE cs.manufacturer_id
+        WHEN 'cpo-vgreen' THEN 3800.0
+        WHEN 'cpo-eboost' THEN 3200.0
+        WHEN 'cpo-datbike' THEN 2500.0
+        END AS price,
+
+    -- Rule: Phân loại chuẩn sạc theo CPO
+    CASE cs.manufacturer_id
+        WHEN 'cpo-vgreen' THEN 0  -- Type 0: CCS2
+        WHEN 'cpo-eboost' THEN 1  -- Type 1: Type 2
+        WHEN 'cpo-datbike' THEN 1 -- Type 1: Type 2
+        END AS type,
+
+    -- Rule: Phân loại điện áp theo CPO
+    CASE cs.manufacturer_id
+        WHEN 'cpo-vgreen' THEN 800.0
+        WHEN 'cpo-eboost' THEN 400.0
+        WHEN 'cpo-datbike' THEN 220.0
+        END AS voltage,
+
+    cp.id AS charging_point_id
+FROM charging_point cp
+         JOIN charging_station cs ON cp.charging_station_id = cs.id,
+     LATERAL generate_series(1, 2) AS g(n);
+
