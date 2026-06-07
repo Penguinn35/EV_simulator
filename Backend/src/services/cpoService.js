@@ -155,13 +155,18 @@ async function dispatchEventToRemote(cpo, eventType, payload) {
         2
       )
     );
+    const responseMessage =
+      responseBody?.message ??
+      responseBody?.error?.message ??
+      responseBody?.httpStatus ??
+      "fail";
 
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, status: 404, message: "forbidden mapped to 404" };
+      return { ok: false, status: 404, message: responseMessage };
     }
 
     if (!response.ok) {
-      return { ok: false, status: response.status, message: "fail" };
+      return { ok: false, status: response.status, message: responseMessage };
     }
 
     return { ok: true, status: response.status, message: "success" };
