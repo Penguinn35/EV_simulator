@@ -14,8 +14,19 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const frontendDistPath = path.resolve(__dirname, "..", "..", "Frontend", "dist");
-const hasFrontendBuild = fs.existsSync(frontendDistPath);
+const frontendDistCandidates = [
+  path.resolve(__dirname, "..", "..", "Frontend", "dist"),
+  path.resolve(__dirname, "..", "..", "frontend", "dist"),
+  path.resolve(__dirname, "..", "dist"),
+  path.resolve(process.cwd(), "Frontend", "dist"),
+  path.resolve(process.cwd(), "frontend", "dist"),
+  path.resolve(process.cwd(), "dist")
+];
+
+const frontendDistPath = frontendDistCandidates.find((candidate) =>
+  fs.existsSync(candidate)
+);
+const hasFrontendBuild = Boolean(frontendDistPath);
 
 const app = express();
 app.use(cors());
@@ -321,6 +332,14 @@ if (hasFrontendBuild) {
   app.get(/^\/(?!api).*/, (_req, res) => {
     res.sendFile(path.join(frontendDistPath, "index.html"));
   });
+} else {
+  app.get("/", (_req, res) => {
+    res.status(200).json({
+      message:
+        "Backend is running but frontend build is missing. Run `npm run build` before start.",
+      checkedPaths: frontendDistCandidates
+    });
+  });
 }
 
 app.use((error, _req, res, _next) => {
@@ -333,4 +352,10 @@ app.use((error, _req, res, _next) => {
 app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Backend running on http://localhost:${PORT}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    hasFrontendBuild
+      ? `[BE] Serving frontend from: ${frontendDistPath}`
+      : `[BE] Frontend build not found. Checked: ${frontendDistCandidates.join(", ")}`
+  );
 });
