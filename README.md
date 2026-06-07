@@ -23,6 +23,16 @@ npm run dev
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:4000`
 
+## 2.1) Build va start de deploy
+
+```bash
+npm run build
+npm run start
+```
+
+- Sau khi `build`, frontend static duoc tao tai `Frontend/dist`.
+- `start` se chay backend va serve frontend build tren cung 1 port (`PORT`, mac dinh `3000`).
+
 ## 3) Data seed
 
 He thong doc tu:

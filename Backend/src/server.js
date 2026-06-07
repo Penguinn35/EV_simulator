@@ -1,6 +1,9 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadSeedData } from "./seed/loadSeedData.js";
 import { createDataStore } from "./store/dataStore.js";
 import { createCpoService } from "./services/cpoService.js";
@@ -8,6 +11,11 @@ import { createEventBus } from "./services/eventBus.js";
 import { createSimulatorService } from "./services/simulatorService.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const frontendDistPath = path.resolve(__dirname, "..", "..", "Frontend", "dist");
+const hasFrontendBuild = fs.existsSync(frontendDistPath);
 
 const app = express();
 app.use(cors());
@@ -306,6 +314,14 @@ app.post("/api/cpos/:cpoId/simulator/stop", async (req, res, next) => {
     next(error);
   }
 });
+
+if (hasFrontendBuild) {
+  app.use(express.static(frontendDistPath));
+
+  app.get(/^\/(?!api).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
+}
 
 app.use((error, _req, res, _next) => {
   const status = error.status ?? 500;
