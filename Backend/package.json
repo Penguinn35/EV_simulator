@@ -9,6 +9,9 @@
     "build": "echo \"Backend build step not required\"",
     "test": "node --test"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
