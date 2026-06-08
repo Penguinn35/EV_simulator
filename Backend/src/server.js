@@ -6,14 +6,17 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadSeedData } from "./seed/loadSeedData.js";
 import { createDataStore } from "./store/dataStore.js";
+import { createMongoDataStore } from "./store/mongoDataStore.js";
 import { createCpoService } from "./services/cpoService.js";
 import { createEventBus } from "./services/eventBus.js";
 import { createSimulatorService } from "./services/simulatorService.js";
-
-dotenv.config();
+import { buildInitialCpoConfigs } from "./seed/initialCpoConfigs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const rootEnvPath = path.resolve(__dirname, "..", "..", ".env");
+dotenv.config({ path: rootEnvPath });
+
 const frontendDistCandidates = [
   path.resolve(__dirname, "..", "..", "Frontend", "dist"),
   path.resolve(__dirname, "..", "..", "frontend", "dist"),
@@ -65,12 +68,23 @@ app.use((req, res, next) => {
 
 const PORT = Number(process.env.PORT ?? 3000);
 const STATIC_TOKEN = process.env.STATIC_TOKEN ?? "ocpi-static-token";
+const MONGODB_URI = process.env.MONGODB_URI?.trim();
 
 const seedData = await loadSeedData();
-const store = await createDataStore(seedData);
+const store = MONGODB_URI
+  ? await createMongoDataStore(seedData)
+  : await createDataStore(seedData);
 const eventBus = createEventBus();
 const cpoService = createCpoService({ store, eventBus });
 const simulatorService = createSimulatorService({ store, cpoService, eventBus });
+
+const initialCpoConfigs = buildInitialCpoConfigs(seedData);
+for (const cpoConfig of initialCpoConfigs) {
+  if (store.getCpoById(cpoConfig.id)) {
+    continue;
+  }
+  await cpoService.createCpo(cpoConfig);
+}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
