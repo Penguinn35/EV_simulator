@@ -112,7 +112,7 @@ button.danger {
 
 .content {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 16px;
   padding: 0 24px 24px;
 }
@@ -123,6 +123,7 @@ button.danger {
   border: 1px solid var(--hairline);
   border-radius: 8px;
   padding: 16px;
+  min-width: 0;
 }
 
 .toolbar {
@@ -224,6 +225,8 @@ button.danger {
 .console-list {
   max-height: calc(100vh - 280px);
   overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   border: 1px solid var(--hairline);
   border-radius: 8px;
   padding: 8px;
@@ -235,6 +238,9 @@ button.danger {
   color: #e8e8e8;
   font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
+  white-space: pre;
+  width: max-content;
+  min-width: 100%;
 }
 
 .inline-actions {

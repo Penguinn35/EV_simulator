@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { ConsolePanel, StationsPanel } from "./components/MainPanels";
+import {
+  ConfirmModal,
+  CpoConfigModal,
+  CpoFormModal,
+  StationDetailModal,
+  StationFormModal
+} from "./components/ModalComponents";
 
 const PAGE_SIZE = 10;
 
@@ -46,270 +54,6 @@ async function api(path, options) {
   return data;
 }
 
-function countConnectors(station) {
-  return station.chargingPoints.reduce(
-    (total, chargePoint) => total + chargePoint.connectors.length,
-    0
-  );
-}
-
-function Modal({ title, children, onClose }) {
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal"
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button onClick={onClose}>Close</button>
-        </div>
-        <div className="modal-body">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function CpoFormModal({
-  title,
-  mode,
-  form,
-  setForm,
-  loading,
-  onSubmit,
-  onClose,
-  submitLabel
-}) {
-  const fields = ["id", "name", "token", "baseUrl", "username", "password"];
-  return (
-    <Modal title={title} onClose={onClose}>
-      <form
-        className="form-grid"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        {fields.map((key) => (
-          <label key={key} className="form-field">
-            <span>{key}</span>
-            <input
-              value={form[key]}
-              disabled={mode === "edit" && key === "id"}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, [key]: event.target.value }))
-              }
-            />
-          </label>
-        ))}
-        <button type="submit" disabled={loading}>
-          {submitLabel}
-        </button>
-      </form>
-    </Modal>
-  );
-}
-
-function StationFormModal({ title, form, setForm, onSubmit, onClose }) {
-  return (
-    <Modal title={title} onClose={onClose}>
-      <form
-        className="form-grid"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit();
-        }}
-      >
-        {Object.keys(form).map((key) => (
-          <label key={key} className="form-field">
-            <span>{key}</span>
-            <input
-              value={form[key]}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  [key]:
-                    key === "status" || key === "latitude" || key === "longitude"
-                      ? Number(event.target.value)
-                      : event.target.value
-                }))
-              }
-            />
-          </label>
-        ))}
-        <button type="submit">Save Station</button>
-      </form>
-    </Modal>
-  );
-}
-
-function ConfirmModal({ title, description, onConfirm, onClose }) {
-  return (
-    <Modal title={title} onClose={onClose}>
-      <p>{description}</p>
-      <div className="inline-actions">
-        <button className="danger" onClick={onConfirm}>
-          Confirm
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function CpoConfigModal({ cpo, onClose, onEdit, onLogin }) {
-  if (!cpo) return null;
-  const { stations, ...configOnly } = cpo;
-  return (
-    <Modal title="Enterprise Configuration" onClose={onClose}>
-      <pre className="config-block">{JSON.stringify(configOnly, null, 2)}</pre>
-      <div className="inline-actions">
-        <button onClick={onEdit}>Edit Config</button>
-        <button onClick={onLogin}>Login Auth</button>
-      </div>
-    </Modal>
-  );
-}
-
-function StationDetailModal({
-  station,
-  connectorForm,
-  setConnectorForm,
-  chargePointForm,
-  setChargePointForm,
-  onClose,
-  onEditStation,
-  onDeleteStation,
-  onAddChargePoint,
-  onDeleteChargePoint,
-  onAddConnector,
-  onEditConnector,
-  onDeleteConnector
-}) {
-  if (!station) return null;
-  return (
-    <Modal title={`Station Details - ${station.name}`} onClose={onClose}>
-      <p>Address: {station.address}</p>
-      <p>District: {station.district}</p>
-      <p>
-        Position: {station.position.latitude}, {station.position.longitude}
-      </p>
-      <div className="inline-actions">
-        <button onClick={onEditStation}>Edit Station</button>
-        <button className="danger" onClick={onDeleteStation}>
-          Delete Station
-        </button>
-      </div>
-
-      <h4>Charge Points</h4>
-      <form
-        className="inline-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onAddChargePoint();
-        }}
-      >
-        <input
-          placeholder="charge point id"
-          value={chargePointForm.id}
-          onChange={(event) =>
-            setChargePointForm((prev) => ({ ...prev, id: event.target.value }))
-          }
-        />
-        <input
-          placeholder="status"
-          value={chargePointForm.status}
-          onChange={(event) =>
-            setChargePointForm((prev) => ({ ...prev, status: Number(event.target.value) }))
-          }
-        />
-        <button type="submit">Add CP</button>
-      </form>
-
-      {station.chargingPoints.map((chargePoint) => (
-        <div className="chargepoint-item" key={chargePoint.id}>
-          <div className="chargepoint-head">
-            <strong>{chargePoint.id}</strong>
-            <button className="danger" onClick={() => onDeleteChargePoint(chargePoint.id)}>
-              Delete CP
-            </button>
-          </div>
-
-          <form
-            className="inline-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onAddConnector(chargePoint.id);
-            }}
-          >
-            <input
-              placeholder="connector id"
-              value={connectorForm.id}
-              onChange={(event) =>
-                setConnectorForm((prev) => ({ ...prev, id: event.target.value }))
-              }
-            />
-            <input
-              placeholder="price"
-              value={connectorForm.price}
-              onChange={(event) =>
-                setConnectorForm((prev) => ({
-                  ...prev,
-                  price: Number(event.target.value)
-                }))
-              }
-            />
-            <label className="checkbox-inline">
-              <input
-                type="checkbox"
-                checked={connectorForm.isAvailable}
-                onChange={(event) =>
-                  setConnectorForm((prev) => ({
-                    ...prev,
-                    isAvailable: event.target.checked
-                  }))
-                }
-              />
-              isAvailable
-            </label>
-            <button type="submit">Add Connector</button>
-          </form>
-
-          <ul>
-            {chargePoint.connectors.map((connector) => (
-              <li key={connector.id}>
-                <span>
-                  {connector.id} | price: {connector.price} | available:{" "}
-                  {String(connector.isAvailable)}
-                </span>
-                <div className="inline-actions">
-                  <button
-                    onClick={() =>
-                      onEditConnector(chargePoint.id, connector.id, {
-                        price: connector.price + 100,
-                        isAvailable: !connector.isAvailable
-                      })
-                    }
-                  >
-                    Quick Edit
-                  </button>
-                  <button
-                    className="danger"
-                    onClick={() => onDeleteConnector(chargePoint.id, connector.id)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </Modal>
-  );
-}
-
 export default function App() {
   const [cpos, setCpos] = useState([]);
   const [selectedCpoId, setSelectedCpoId] = useState("");
@@ -317,7 +61,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busyActions, setBusyActions] = useState(new Set());
 
   const [showCreateCpo, setShowCreateCpo] = useState(false);
   const [cpoModalMode, setCpoModalMode] = useState("create");
@@ -344,19 +88,52 @@ export default function App() {
     [stations, page]
   );
 
-  async function loadCpos() {
-    const result = await api("/api/cpos");
-    setCpos(result.data);
-    if (!selectedCpoId && result.data[0]) {
-      setSelectedCpoId(result.data[0].id);
+  function beginAction(actionKey) {
+    setBusyActions((prev) => {
+      const next = new Set(prev);
+      next.add(actionKey);
+      return next;
+    });
+  }
+
+  function endAction(actionKey) {
+    setBusyActions((prev) => {
+      const next = new Set(prev);
+      next.delete(actionKey);
+      return next;
+    });
+  }
+
+  async function runBusy(actionKey, task) {
+    beginAction(actionKey);
+    try {
+      return await task();
+    } finally {
+      endAction(actionKey);
     }
+  }
+
+  function isBusy(actionKey) {
+    return busyActions.has(actionKey);
+  }
+
+  async function loadCpos() {
+    await runBusy("load-cpos", async () => {
+      const result = await api("/api/cpos");
+      setCpos(result.data);
+      if (!selectedCpoId && result.data[0]) {
+        setSelectedCpoId(result.data[0].id);
+      }
+    });
   }
 
   async function loadStations(cpoId) {
     if (!cpoId) return;
-    const result = await api(`/api/cpos/${cpoId}/stations/admin`);
-    setStations(result.data);
-    setPage(1);
+    await runBusy("load-stations", async () => {
+      const result = await api(`/api/cpos/${cpoId}/stations/admin`);
+      setStations(result.data);
+      setPage(1);
+    });
   }
 
   useEffect(() => {
@@ -383,17 +160,16 @@ export default function App() {
   }, [selectedCpoId]);
 
   async function createCpo() {
-    setLoading(true);
     setError("");
     try {
-      await api("/api/cpos", { method: "POST", body: JSON.stringify(cpoForm) });
+      await runBusy("create-cpo", () =>
+        api("/api/cpos", { method: "POST", body: JSON.stringify(cpoForm) })
+      );
       setCpoForm(emptyCpoForm);
       setShowCreateCpo(false);
       await loadCpos();
     } catch (err) {
       setError(err.message);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -419,17 +195,21 @@ export default function App() {
 
   async function updateCpo(patch) {
     if (!selectedCpo) return;
-    await api(`/api/cpos/${selectedCpo.id}`, {
-      method: "PUT",
-      body: JSON.stringify(patch)
+    await runBusy("update-cpo", async () => {
+      await api(`/api/cpos/${selectedCpo.id}`, {
+        method: "PUT",
+        body: JSON.stringify(patch)
+      });
+      await loadCpos();
     });
-    await loadCpos();
   }
 
   async function deleteCpo() {
     if (!selectedCpo) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}`, { method: "DELETE" });
+      await runBusy("delete-cpo", () =>
+        api(`/api/cpos/${selectedCpo.id}`, { method: "DELETE" })
+      );
       setConfirmDeleteCpo(false);
       setShowConfig(false);
       setSelectedCpoId("");
@@ -442,21 +222,23 @@ export default function App() {
   async function createStation() {
     if (!selectedCpo) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}/stations`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: stationForm.id || `cs-${Date.now()}`,
-          name: stationForm.name,
-          address: stationForm.address,
-          district: stationForm.district,
-          status: stationForm.status,
-          position: {
-            latitude: stationForm.latitude,
-            longitude: stationForm.longitude
-          },
-          chargingPoints: []
+      await runBusy("create-station", () =>
+        api(`/api/cpos/${selectedCpo.id}/stations`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: stationForm.id || `cs-${Date.now()}`,
+            name: stationForm.name,
+            address: stationForm.address,
+            district: stationForm.district,
+            status: stationForm.status,
+            position: {
+              latitude: stationForm.latitude,
+              longitude: stationForm.longitude
+            },
+            chargingPoints: []
+          })
         })
-      });
+      );
       setShowCreateStation(false);
       setStationForm(emptyStationForm);
       await loadStations(selectedCpo.id);
@@ -468,19 +250,21 @@ export default function App() {
   async function editStation() {
     if (!selectedCpo || !stationToEdit) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}/stations/${stationToEdit.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          name: stationForm.name,
-          address: stationForm.address,
-          district: stationForm.district,
-          status: stationForm.status,
-          position: {
-            latitude: stationForm.latitude,
-            longitude: stationForm.longitude
-          }
+      await runBusy(`edit-station-${stationToEdit.id}`, () =>
+        api(`/api/cpos/${selectedCpo.id}/stations/${stationToEdit.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            name: stationForm.name,
+            address: stationForm.address,
+            district: stationForm.district,
+            status: stationForm.status,
+            position: {
+              latitude: stationForm.latitude,
+              longitude: stationForm.longitude
+            }
+          })
         })
-      });
+      );
       setShowEditStation(false);
       setStationToEdit(null);
       await loadStations(selectedCpo.id);
@@ -492,7 +276,9 @@ export default function App() {
   async function deleteStation(stationId) {
     if (!selectedCpo) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}/stations/${stationId}`, { method: "DELETE" });
+      await runBusy(`delete-station-${stationId}`, () =>
+        api(`/api/cpos/${selectedCpo.id}/stations/${stationId}`, { method: "DELETE" })
+      );
       setStationDetail(null);
       await loadStations(selectedCpo.id);
     } catch (err) {
@@ -503,19 +289,19 @@ export default function App() {
   async function addChargePoint(stationId) {
     if (!selectedCpo || !chargePointForm.id) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: chargePointForm.id,
-          status: chargePointForm.status,
-          connectors: []
+      await runBusy(`add-charge-point-${stationId}`, () =>
+        api(`/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points`, {
+          method: "POST",
+          body: JSON.stringify({
+            id: chargePointForm.id,
+            status: chargePointForm.status,
+            connectors: []
+          })
         })
-      });
+      );
       setChargePointForm(emptyChargePointForm);
       await loadStations(selectedCpo.id);
-      setStationDetail((prev) =>
-        prev ? stations.find((item) => item.id === prev.id) ?? prev : prev
-      );
+      setStationDetail((prev) => (prev ? { ...prev } : prev));
     } catch (err) {
       setError(err.message);
     }
@@ -524,9 +310,13 @@ export default function App() {
   async function deleteChargePoint(stationId, chargePointId) {
     if (!selectedCpo) return;
     try {
-      await api(
-        `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}`,
-        { method: "DELETE" }
+      await runBusy(
+        `delete-charge-point-${stationId}-${chargePointId}`,
+        () =>
+          api(
+            `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}`,
+            { method: "DELETE" }
+          )
       );
       await loadStations(selectedCpo.id);
     } catch (err) {
@@ -537,12 +327,14 @@ export default function App() {
   async function addConnector(stationId, chargePointId) {
     if (!selectedCpo || !connectorForm.id) return;
     try {
-      await api(
-        `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors`,
-        {
-          method: "POST",
-          body: JSON.stringify(connectorForm)
-        }
+      await runBusy(`add-connector-${stationId}-${chargePointId}`, () =>
+        api(
+          `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors`,
+          {
+            method: "POST",
+            body: JSON.stringify(connectorForm)
+          }
+        )
       );
       setConnectorForm(emptyConnectorForm);
       await loadStations(selectedCpo.id);
@@ -554,9 +346,11 @@ export default function App() {
   async function editConnector(stationId, chargePointId, connectorId, patch) {
     if (!selectedCpo) return;
     try {
-      await api(
-        `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors/${connectorId}`,
-        { method: "PUT", body: JSON.stringify(patch) }
+      await runBusy(`edit-connector-${stationId}-${chargePointId}-${connectorId}`, () =>
+        api(
+          `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors/${connectorId}`,
+          { method: "PUT", body: JSON.stringify(patch) }
+        )
       );
       await loadStations(selectedCpo.id);
     } catch (err) {
@@ -567,9 +361,11 @@ export default function App() {
   async function deleteConnector(stationId, chargePointId, connectorId) {
     if (!selectedCpo) return;
     try {
-      await api(
-        `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors/${connectorId}`,
-        { method: "DELETE" }
+      await runBusy(`delete-connector-${stationId}-${chargePointId}-${connectorId}`, () =>
+        api(
+          `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors/${connectorId}`,
+          { method: "DELETE" }
+        )
       );
       await loadStations(selectedCpo.id);
     } catch (err) {
@@ -579,8 +375,11 @@ export default function App() {
 
   async function simulator(action) {
     if (!selectedCpo) return;
+    const actionKey = action === "start" ? "simulator-start" : "simulator-stop";
     try {
-      await api(`/api/cpos/${selectedCpo.id}/simulator/${action}`, { method: "POST" });
+      await runBusy(actionKey, () =>
+        api(`/api/cpos/${selectedCpo.id}/simulator/${action}`, { method: "POST" })
+      );
       await loadCpos();
     } catch (err) {
       setError(err.message);
@@ -590,14 +389,22 @@ export default function App() {
   async function loginAuth() {
     if (!selectedCpo) return;
     try {
-      await api(`/api/cpos/${selectedCpo.id}/auth/login`, {
-        method: "POST",
-        body: JSON.stringify({})
-      });
+      await runBusy("login-auth", () =>
+        api(`/api/cpos/${selectedCpo.id}/auth/login`, {
+          method: "POST",
+          body: JSON.stringify({})
+        })
+      );
       await loadCpos();
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  function clearConsole() {
+    runBusy("clear-console", async () => {
+      setLogs([]);
+    }).catch((err) => setError(err.message));
   }
 
   return (
@@ -635,76 +442,21 @@ export default function App() {
       {error && <div className="error">{error}</div>}
 
       <main className="content">
-        <section className="stations-panel">
-          <div className="toolbar">
-            <h2>{selectedCpo ? `${selectedCpo.name} Stations` : "Select a CPO"}</h2>
-            <div className="toolbar-actions">
-              <button onClick={() => setShowCreateStation(true)} disabled={!selectedCpo}>
-                Add Station
-              </button>
-              <button onClick={loginAuth} disabled={!selectedCpo}>
-                Login Auth
-              </button>
-              <button onClick={() => simulator("start")} disabled={!selectedCpo}>
-                Start Simulator
-              </button>
-              <button onClick={() => simulator("stop")} disabled={!selectedCpo}>
-                Stop Simulator
-              </button>
-              <button
-                className="danger"
-                onClick={() => setConfirmDeleteCpo(true)}
-                disabled={!selectedCpo}
-              >
-                Delete CPO
-              </button>
-            </div>
-          </div>
+        <StationsPanel
+          selectedCpo={selectedCpo}
+          pagedStations={pagedStations}
+          page={page}
+          pageCount={pageCount}
+          busyActions={busyActions}
+          onOpenCreateStation={() => setShowCreateStation(true)}
+          onLoginAuth={loginAuth}
+          onSimulator={simulator}
+          onDeleteCpo={() => setConfirmDeleteCpo(true)}
+          onSelectStation={setStationDetail}
+          onPageChange={setPage}
+        />
 
-          <div className="station-list">
-            {pagedStations.map((station) => (
-              <article
-                className="station-card simple"
-                key={station.id}
-                onClick={() => setStationDetail(station)}
-              >
-                <h3>{station.name}</h3>
-                <p>{station.address}</p>
-                <p>
-                  Points: {station.chargingPoints.length} | Connectors:{" "}
-                  {countConnectors(station)}
-                </p>
-              </article>
-            ))}
-          </div>
-
-          <footer className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>
-              Prev
-            </button>
-            <span>
-              Page {page} / {pageCount}
-            </span>
-            <button
-              disabled={page >= pageCount}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Next
-            </button>
-          </footer>
-        </section>
-
-        <aside className="console-panel">
-          <div className="toolbar">
-            <h2>SSE Console</h2>
-            <button onClick={() => setLogs([])}>Clear Console</button>
-          </div>
-          <div className="console-list">
-            {logs.map((item) => (
-              <pre key={item.id}>{JSON.stringify(item, null, 2)}</pre>
-            ))}
-          </div>
-        </aside>
+        <ConsolePanel logs={logs} busyActions={busyActions} onClear={clearConsole} />
       </main>
 
       {showCreateCpo && (
@@ -713,7 +465,7 @@ export default function App() {
           mode={cpoModalMode}
           form={cpoForm}
           setForm={setCpoForm}
-          loading={loading}
+          loading={isBusy(cpoModalMode === "edit" ? "update-cpo" : "create-cpo")}
           onSubmit={saveCpo}
           submitLabel={cpoModalMode === "edit" ? "Update CPO" : "Save CPO"}
           onClose={() => setShowCreateCpo(false)}
@@ -725,6 +477,8 @@ export default function App() {
           title="Create Station"
           form={stationForm}
           setForm={setStationForm}
+          loading={isBusy("create-station")}
+          submitLabel="Save Station"
           onSubmit={createStation}
           onClose={() => setShowCreateStation(false)}
         />
@@ -735,6 +489,8 @@ export default function App() {
           title="Edit Station"
           form={stationForm}
           setForm={setStationForm}
+          loading={stationToEdit ? isBusy(`edit-station-${stationToEdit.id}`) : false}
+          submitLabel="Update Station"
           onSubmit={editStation}
           onClose={() => setShowEditStation(false)}
         />
@@ -745,6 +501,8 @@ export default function App() {
           cpo={selectedCpo}
           onClose={() => setShowConfig(false)}
           onLogin={loginAuth}
+          loginLoading={isBusy("login-auth")}
+          uiLocked={isBusy("update-cpo") || isBusy("delete-cpo") || isBusy("load-cpos")}
           onEdit={() => {
             if (!selectedCpo) return;
             setCpoForm({
@@ -766,6 +524,7 @@ export default function App() {
         <ConfirmModal
           title="Delete CPO"
           description={`Delete ${selectedCpo.name}?`}
+          loading={isBusy("delete-cpo")}
           onClose={() => setConfirmDeleteCpo(false)}
           onConfirm={deleteCpo}
         />
@@ -778,10 +537,15 @@ export default function App() {
           setConnectorForm={setConnectorForm}
           chargePointForm={chargePointForm}
           setChargePointForm={setChargePointForm}
+          isBusy={isBusy}
           onClose={() => setStationDetail(null)}
           onEditStation={() => {
+            beginAction("edit-station-open");
             const latest = stations.find((item) => item.id === stationDetail.id);
-            if (!latest) return;
+            if (!latest) {
+              endAction("edit-station-open");
+              return;
+            }
             setStationToEdit(latest);
             setStationForm({
               id: latest.id,
@@ -793,6 +557,7 @@ export default function App() {
               longitude: latest.position.longitude
             });
             setShowEditStation(true);
+            endAction("edit-station-open");
           }}
           onDeleteStation={() => deleteStation(stationDetail.id)}
           onAddChargePoint={() => addChargePoint(stationDetail.id)}
