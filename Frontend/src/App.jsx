@@ -30,14 +30,6 @@ const emptyStationForm = {
 };
 
 const emptyChargePointForm = { id: "", status: 1 };
-const emptyConnectorForm = {
-  id: "",
-  type: 1,
-  price: 3200,
-  voltage: 400,
-  maxPower: 22,
-  isAvailable: true
-};
 
 async function api(path, options) {
   const response = await fetch(path, {
@@ -75,7 +67,6 @@ export default function App() {
   const [cpoForm, setCpoForm] = useState(emptyCpoForm);
   const [stationForm, setStationForm] = useState(emptyStationForm);
   const [chargePointForm, setChargePointForm] = useState(emptyChargePointForm);
-  const [connectorForm, setConnectorForm] = useState(emptyConnectorForm);
 
   const selectedCpo = useMemo(
     () => cpos.find((item) => item.id === selectedCpoId) ?? null,
@@ -324,19 +315,18 @@ export default function App() {
     }
   }
 
-  async function addConnector(stationId, chargePointId) {
-    if (!selectedCpo || !connectorForm.id) return;
+  async function addConnector(stationId, chargePointId, connectorPayload) {
+    if (!selectedCpo || !connectorPayload.id) return;
     try {
       await runBusy(`add-connector-${stationId}-${chargePointId}`, () =>
         api(
           `/api/cpos/${selectedCpo.id}/stations/${stationId}/charge-points/${chargePointId}/connectors`,
           {
             method: "POST",
-            body: JSON.stringify(connectorForm)
+            body: JSON.stringify(connectorPayload)
           }
         )
       );
-      setConnectorForm(emptyConnectorForm);
       await loadStations(selectedCpo.id);
     } catch (err) {
       setError(err.message);
@@ -533,8 +523,6 @@ export default function App() {
       {stationDetail && (
         <StationDetailModal
           station={stations.find((item) => item.id === stationDetail.id) ?? stationDetail}
-          connectorForm={connectorForm}
-          setConnectorForm={setConnectorForm}
           chargePointForm={chargePointForm}
           setChargePointForm={setChargePointForm}
           isBusy={isBusy}
@@ -564,7 +552,9 @@ export default function App() {
           onDeleteChargePoint={(chargePointId) =>
             deleteChargePoint(stationDetail.id, chargePointId)
           }
-          onAddConnector={(chargePointId) => addConnector(stationDetail.id, chargePointId)}
+          onAddConnector={(chargePointId, connectorPayload) =>
+            addConnector(stationDetail.id, chargePointId, connectorPayload)
+          }
           onEditConnector={(chargePointId, connectorId, patch) =>
             editConnector(stationDetail.id, chargePointId, connectorId, patch)
           }

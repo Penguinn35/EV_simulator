@@ -10,7 +10,6 @@ import { createMongoDataStore } from "./store/mongoDataStore.js";
 import { createCpoService } from "./services/cpoService.js";
 import { createEventBus } from "./services/eventBus.js";
 import { createSimulatorService } from "./services/simulatorService.js";
-import { buildInitialCpoConfigs } from "./seed/initialCpoConfigs.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,14 +76,6 @@ const store = MONGODB_URI
 const eventBus = createEventBus();
 const cpoService = createCpoService({ store, eventBus });
 const simulatorService = createSimulatorService({ store, cpoService, eventBus });
-
-const initialCpoConfigs = buildInitialCpoConfigs(seedData);
-for (const cpoConfig of initialCpoConfigs) {
-  if (store.getCpoById(cpoConfig.id)) {
-    continue;
-  }
-  await cpoService.createCpo(cpoConfig);
-}
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });

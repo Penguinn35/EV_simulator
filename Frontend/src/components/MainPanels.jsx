@@ -63,12 +63,24 @@ export function StationsPanel({
 
       <div className="station-list">
         {pagedStations.map((station) => (
-          <article
-            className="station-card simple"
-            key={station.id}
-            onClick={() => onSelectStation(station)}
-          >
-            <h3>{station.name}</h3>
+          <article className="station-card simple" key={station.id}>
+            <div className="station-card-head">
+              <h3>{station.name}</h3>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={`Edit ${station.name}`}
+                onClick={() => onSelectStation(station)}
+                title="Edit station"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path
+                    d="M3 17.25V21h3.75l11-11-3.75-3.75-11 11zm17.71-10.04a1.004 1.004 0 000-1.42l-2.5-2.5a1.004 1.004 0 00-1.42 0L14.83 5.25l3.75 3.75 2.13-2.09z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </div>
             <p>{station.address}</p>
             <p>
               Points: {station.chargingPoints.length} | Connectors: {countConnectors(station)}

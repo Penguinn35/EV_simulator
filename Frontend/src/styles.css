@@ -112,7 +112,7 @@ button.danger {
 
 .content {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 33.333vw);
   gap: 16px;
   padding: 0 24px 24px;
 }
@@ -153,8 +153,30 @@ button.danger {
   background: var(--canvas-soft);
 }
 
-.station-card.simple {
-  cursor: pointer;
+.station-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.station-card-head h3 {
+  margin: 0;
+}
+
+.icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.icon-button svg {
+  display: block;
 }
 
 .station-header {
