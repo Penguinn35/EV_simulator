@@ -25,6 +25,43 @@ function createEmptyStore(seed) {
   };
 }
 
+function normalizeConnectorStatus(status, isAvailable) {
+  if (typeof status === "string") {
+    const normalized = status.trim().toUpperCase();
+    if (["OFFLINE", "AVAILABLE", "MAINTENANCE", "IN_USE"].includes(normalized)) {
+      return normalized;
+    }
+  }
+  if (typeof isAvailable === "boolean") {
+    return isAvailable ? "AVAILABLE" : "IN_USE";
+  }
+  return "AVAILABLE";
+}
+
+function getWeightedInitialConnectorStatus() {
+  return Math.random() < 0.7 ? "AVAILABLE" : "IN_USE";
+}
+
+function normalizeConnectorTree(cpos) {
+  let changed = false;
+  for (const cpo of ensureArray(cpos)) {
+    for (const station of ensureArray(cpo.stations)) {
+      for (const chargePoint of ensureArray(station.chargingPoints)) {
+        for (const connector of ensureArray(chargePoint.connectors)) {
+          const nextStatus = normalizeConnectorStatus(connector.status, connector.isAvailable);
+          const nextAvailable = nextStatus === "AVAILABLE";
+          if (connector.status !== nextStatus || connector.isAvailable !== nextAvailable) {
+            connector.status = nextStatus;
+            connector.isAvailable = nextAvailable;
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+  return changed;
+}
+
 async function ensureDataDir() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
@@ -56,6 +93,7 @@ export async function createDataStore(seed) {
       updatedAt: cpo.authSession?.updatedAt ?? null
     }
   }));
+  const migratedConnectorStatus = normalizeConnectorTree(data.cpos);
 
   async function save() {
     data.meta.updatedAt = nowIso();
@@ -82,13 +120,15 @@ export async function createDataStore(seed) {
         type: 1,
         voltage: 400
       };
+    const status = getWeightedInitialConnectorStatus();
     return {
       id: baseId,
       type: profile.type,
       price: profile.price,
       voltage: profile.voltage,
       maxPower: profile.maxPower,
-      isAvailable: true
+      status,
+      isAvailable: status === "AVAILABLE"
     };
   }
 
@@ -154,6 +194,10 @@ export async function createDataStore(seed) {
     data.cpos.push(cpo);
     await save();
     return cpo;
+  }
+
+  if (migratedConnectorStatus) {
+    await save();
   }
 
   async function updateCpo(cpoId, patch) {

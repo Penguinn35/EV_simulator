@@ -6,7 +6,7 @@ const emptyConnectorForm = {
   price: 3200,
   voltage: 400,
   maxPower: 22,
-  isAvailable: true
+  status: "AVAILABLE"
 };
 
 let modalZIndexCounter = 1000;
@@ -211,7 +211,7 @@ export function StationDetailModal({
       price: connector.price,
       voltage: connector.voltage,
       maxPower: connector.maxPower,
-      isAvailable: connector.isAvailable
+      status: connector.status ?? (connector.isAvailable ? "AVAILABLE" : "IN_USE")
     });
     setShowConnectorModal(true);
   }
@@ -299,8 +299,8 @@ export function StationDetailModal({
                 <li key={connector.id}>
                   <span>
                     {connector.id} | type: {connector.type} | price: {connector.price} | voltage:{" "}
-                    {connector.voltage} | maxPower: {connector.maxPower} | available:{" "}
-                    {String(connector.isAvailable)}
+                    {connector.voltage} | maxPower: {connector.maxPower} | status:{" "}
+                    {connector.status ?? (connector.isAvailable ? "AVAILABLE" : "IN_USE")}
                   </span>
                   <div className="inline-actions">
                     <button
@@ -410,19 +410,20 @@ export function StationDetailModal({
                 }
               />
             </label>
-            <label className="checkbox-inline">
-              <input
-                type="checkbox"
-                checked={connectorModalForm.isAvailable}
+            <label className="form-field">
+              <span>status</span>
+              <select
+                value={connectorModalForm.status}
                 disabled={isBusy(connectorBusyKey)}
                 onChange={(event) =>
-                  setConnectorModalForm((prev) => ({
-                    ...prev,
-                    isAvailable: event.target.checked
-                  }))
+                  setConnectorModalForm((prev) => ({ ...prev, status: event.target.value }))
                 }
-              />
-              isAvailable
+              >
+                <option value="AVAILABLE">AVAILABLE</option>
+                <option value="IN_USE">IN_USE</option>
+                <option value="OFFLINE">OFFLINE</option>
+                <option value="MAINTENANCE">MAINTENANCE</option>
+              </select>
             </label>
             <button type="submit" disabled={isBusy(connectorBusyKey)}>
               {isBusy(connectorBusyKey)

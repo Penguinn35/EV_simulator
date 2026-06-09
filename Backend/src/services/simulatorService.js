@@ -21,7 +21,10 @@ export function createSimulatorService({ store, cpoService, eventBus }) {
           timers.delete(cpoId);
           return;
         }
-        const event = cpoService.generateRandomEventPayload(latest);
+        const event = cpoService.generateRandomConnectorStatusPayload(latest);
+        if (!event) {
+          return;
+        }
         await cpoService.dispatchEvent(cpoId, event.eventType, event.payload, {
           source: "simulator"
         });

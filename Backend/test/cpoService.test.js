@@ -31,6 +31,7 @@ function createFakeDependencies() {
                     price: 3000,
                     voltage: 400,
                     maxPower: 22,
+                    status: "AVAILABLE",
                     isAvailable: true
                   }
                 ]
@@ -114,6 +115,19 @@ test("dispatchEvent maps forbidden to status 404", async () => {
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test("applyEventMutation updates connector status by connectorId", async () => {
+  const { store, eventBus } = createFakeDependencies();
+  const service = createCpoService({ store, eventBus });
+  await service.applyEventMutation("cpo-vgreen", "CONNECTOR_EDIT_STATUS", {
+    connectorId: "cn-1",
+    status: "IN_USE"
+  });
+  const connector =
+    store.getCpoById("cpo-vgreen").stations[0].chargingPoints[0].connectors[0];
+  assert.equal(connector.status, "IN_USE");
+  assert.equal(connector.isAvailable, false);
 });
 
 test("authLogin reads token and expiresIn", async () => {
