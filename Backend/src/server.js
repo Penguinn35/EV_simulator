@@ -77,6 +77,67 @@ const eventBus = createEventBus();
 const cpoService = createCpoService({ store, eventBus });
 const simulatorService = createSimulatorService({ store, cpoService, eventBus });
 
+function getCpoOrThrow(cpoId) {
+  const cpo = store.getCpoById(cpoId);
+  if (!cpo) {
+    const error = new Error("CPO not found");
+    error.status = 404;
+    throw error;
+  }
+  return cpo;
+}
+
+function getStationOrThrow(cpoId, stationId) {
+  const cpo = getCpoOrThrow(cpoId);
+  const station = cpo.stations.find((item) => item.id === stationId);
+  if (!station) {
+    const error = new Error("Station not found");
+    error.status = 404;
+    throw error;
+  }
+  return station;
+}
+
+function getChargePointOrThrow(cpoId, stationId, chargePointId) {
+  const station = getStationOrThrow(cpoId, stationId);
+  const chargePoint = station.chargingPoints.find((item) => item.id === chargePointId);
+  if (!chargePoint) {
+    const error = new Error("Charge point not found");
+    error.status = 404;
+    throw error;
+  }
+  return chargePoint;
+}
+
+function getConnectorOrThrow(cpoId, stationId, chargePointId, connectorId) {
+  const chargePoint = getChargePointOrThrow(cpoId, stationId, chargePointId);
+  const connector = chargePoint.connectors.find((item) => item.id === connectorId);
+  if (!connector) {
+    const error = new Error("Connector not found");
+    error.status = 404;
+    throw error;
+  }
+  return connector;
+}
+
+function buildId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+}
+
+function ensureOutboundOkOrThrow(outbound) {
+  if (outbound.status === 404 && outbound.message?.includes("forbidden")) {
+    const error = new Error("forbidden mapped to 404");
+    error.status = 404;
+    throw error;
+  }
+  if (!outbound.ok) {
+    const error = new Error("fail");
+    error.status = 500;
+    error.outbound = outbound;
+    throw error;
+  }
+}
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
@@ -200,8 +261,27 @@ app.get("/api/cpos/:cpoId/stations/admin", (req, res, next) => {
 
 app.post("/api/cpos/:cpoId/stations", async (req, res, next) => {
   try {
-    const station = await cpoService.addStation(req.params.cpoId, req.body);
-    res.status(201).json({ data: station });
+    const stationId = req.body.id ?? buildId("cs");
+    const payload = {
+      station: {
+        id: stationId,
+        name: req.body.name ?? "New Station",
+        position: req.body.position ?? { latitude: 0, longitude: 0 },
+        address: req.body.address ?? "",
+        district: req.body.district ?? "",
+        status: req.body.status ?? 1,
+        chargingPoints: Array.isArray(req.body.chargingPoints) ? req.body.chargingPoints : []
+      }
+    };
+    const outbound = await cpoService.dispatchEvent(
+      req.params.cpoId,
+      "STATION_ADD",
+      payload,
+      { source: "admin" }
+    );
+    ensureOutboundOkOrThrow(outbound);
+    const station = getStationOrThrow(req.params.cpoId, payload.station.id);
+    res.status(201).json({ data: station, outbound });
   } catch (error) {
     next(error);
   }
@@ -209,12 +289,21 @@ app.post("/api/cpos/:cpoId/stations", async (req, res, next) => {
 
 app.put("/api/cpos/:cpoId/stations/:stationId", async (req, res, next) => {
   try {
-    const station = await cpoService.upsertStation(
+    const payload = {
+      station: {
+        id: req.params.stationId,
+        ...req.body
+      }
+    };
+    const outbound = await cpoService.dispatchEvent(
       req.params.cpoId,
-      req.params.stationId,
-      req.body
+      "STATION_CHANGE",
+      payload,
+      { source: "admin" }
     );
-    res.json({ data: station });
+    ensureOutboundOkOrThrow(outbound);
+    const station = getStationOrThrow(req.params.cpoId, req.params.stationId);
+    res.json({ data: station, outbound });
   } catch (error) {
     next(error);
   }
@@ -222,8 +311,14 @@ app.put("/api/cpos/:cpoId/stations/:stationId", async (req, res, next) => {
 
 app.delete("/api/cpos/:cpoId/stations/:stationId", async (req, res, next) => {
   try {
-    await cpoService.removeStation(req.params.cpoId, req.params.stationId);
-    res.status(204).send();
+    const outbound = await cpoService.dispatchEvent(
+      req.params.cpoId,
+      "STATION_DELETE",
+      { stationId: req.params.stationId },
+      { source: "admin" }
+    );
+    ensureOutboundOkOrThrow(outbound);
+    res.json({ data: { stationId: req.params.stationId }, outbound });
   } catch (error) {
     next(error);
   }
@@ -233,12 +328,28 @@ app.post(
   "/api/cpos/:cpoId/stations/:stationId/charge-points",
   async (req, res, next) => {
     try {
-      const chargePoint = await cpoService.addChargePoint(
+      const chargePointId = req.body.id ?? buildId("cp");
+      const payload = {
+        stationId: req.params.stationId,
+        chargePoint: {
+          id: chargePointId,
+          status: req.body.status ?? 1,
+          connectors: Array.isArray(req.body.connectors) ? req.body.connectors : []
+        }
+      };
+      const outbound = await cpoService.dispatchEvent(
+        req.params.cpoId,
+        "CHARGEPOINT_ADD",
+        payload,
+        { source: "admin" }
+      );
+      ensureOutboundOkOrThrow(outbound);
+      const chargePoint = getChargePointOrThrow(
         req.params.cpoId,
         req.params.stationId,
-        req.body
+        payload.chargePoint.id
       );
-      res.status(201).json({ data: chargePoint });
+      res.status(201).json({ data: chargePoint, outbound });
     } catch (error) {
       next(error);
     }
@@ -249,12 +360,14 @@ app.delete(
   "/api/cpos/:cpoId/stations/:stationId/charge-points/:chargePointId",
   async (req, res, next) => {
     try {
-      await cpoService.removeChargePoint(
+      const outbound = await cpoService.dispatchEvent(
         req.params.cpoId,
-        req.params.stationId,
-        req.params.chargePointId
+        "CHARGEPOINT_DELETE",
+        { chargePointId: req.params.chargePointId },
+        { source: "admin" }
       );
-      res.status(204).send();
+      ensureOutboundOkOrThrow(outbound);
+      res.json({ data: { chargePointId: req.params.chargePointId }, outbound });
     } catch (error) {
       next(error);
     }
@@ -265,13 +378,34 @@ app.post(
   "/api/cpos/:cpoId/stations/:stationId/charge-points/:chargePointId/connectors",
   async (req, res, next) => {
     try {
-      const connector = await cpoService.addConnector(
+      const connectorId = req.body.id ?? buildId("cn");
+      const payload = {
+        stationId: req.params.stationId,
+        chargePointId: req.params.chargePointId,
+        connector: {
+          id: connectorId,
+          type: req.body.type ?? 1,
+          price: req.body.price ?? 0,
+          voltage: req.body.voltage ?? 220,
+          maxPower: req.body.maxPower ?? 7.4,
+          status: req.body.status,
+          isAvailable: req.body.isAvailable
+        }
+      };
+      const outbound = await cpoService.dispatchEvent(
+        req.params.cpoId,
+        "CONNECTOR_ADD",
+        payload,
+        { source: "admin" }
+      );
+      ensureOutboundOkOrThrow(outbound);
+      const connector = getConnectorOrThrow(
         req.params.cpoId,
         req.params.stationId,
         req.params.chargePointId,
-        req.body
+        payload.connector.id
       );
-      res.status(201).json({ data: connector });
+      res.status(201).json({ data: connector, outbound });
     } catch (error) {
       next(error);
     }
@@ -282,14 +416,28 @@ app.put(
   "/api/cpos/:cpoId/stations/:stationId/charge-points/:chargePointId/connectors/:connectorId",
   async (req, res, next) => {
     try {
-      const connector = await cpoService.updateConnector(
+      const payload = {
+        stationId: req.params.stationId,
+        chargePointId: req.params.chargePointId,
+        connector: {
+          id: req.params.connectorId,
+          ...req.body
+        }
+      };
+      const outbound = await cpoService.dispatchEvent(
+        req.params.cpoId,
+        "CONNECTOR_EDIT",
+        payload,
+        { source: "admin" }
+      );
+      ensureOutboundOkOrThrow(outbound);
+      const connector = getConnectorOrThrow(
         req.params.cpoId,
         req.params.stationId,
         req.params.chargePointId,
-        req.params.connectorId,
-        req.body
+        req.params.connectorId
       );
-      res.json({ data: connector });
+      res.json({ data: connector, outbound });
     } catch (error) {
       next(error);
     }
@@ -300,13 +448,14 @@ app.delete(
   "/api/cpos/:cpoId/stations/:stationId/charge-points/:chargePointId/connectors/:connectorId",
   async (req, res, next) => {
     try {
-      await cpoService.removeConnector(
+      const outbound = await cpoService.dispatchEvent(
         req.params.cpoId,
-        req.params.stationId,
-        req.params.chargePointId,
-        req.params.connectorId
+        "CONNECTOR_DELETE",
+        { connectorId: req.params.connectorId },
+        { source: "admin" }
       );
-      res.status(204).send();
+      ensureOutboundOkOrThrow(outbound);
+      res.json({ data: { connectorId: req.params.connectorId }, outbound });
     } catch (error) {
       next(error);
     }
